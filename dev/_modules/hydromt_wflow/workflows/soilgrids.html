@@ -797,6 +797,58 @@
     <span class="k">return</span> <span class="n">ds_out</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">air_entry_pressure</span><span class="p">(</span>
+    <span class="n">ds</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">,</span>
+    <span class="n">thetas</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="n">ptf_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Determine soil air-entry pressure for each SoilGrids layer.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ds : xarray.Dataset</span>
+<span class="sd">        Dataset containing clay and sand percentages at each soil layer.</span>
+<span class="sd">    thetas : xarray.DataArray</span>
+<span class="sd">        Saturated water content at each soil layer [-].</span>
+<span class="sd">    ptf_name : {"brakensiek", "clapp"}</span>
+<span class="sd">        Pedotransfer function used to calculate air-entry pressure.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    xarray.DataArray</span>
+<span class="sd">        Air-entry pressure head [cm] at each soil layer.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">ptf_name</span> <span class="o">==</span> <span class="s2">"brakensiek"</span><span class="p">:</span>
+        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">apply_ufunc</span><span class="p">(</span>
+            <span class="n">ptf</span><span class="o">.</span><span class="n">air_entry_pressure_brakensiek</span><span class="p">,</span>
+            <span class="n">ds</span><span class="p">[</span><span class="s2">"clyppt"</span><span class="p">],</span>
+            <span class="n">ds</span><span class="p">[</span><span class="s2">"sndppt"</span><span class="p">],</span>
+            <span class="n">thetas</span><span class="p">,</span>
+            <span class="n">dask</span><span class="o">=</span><span class="s2">"parallelized"</span><span class="p">,</span>
+            <span class="n">output_dtypes</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+            <span class="n">keep_attrs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ptf_name</span> <span class="o">==</span> <span class="s2">"clapp"</span><span class="p">:</span>
+        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">apply_ufunc</span><span class="p">(</span>
+            <span class="n">ptf</span><span class="o">.</span><span class="n">air_entry_pressure_clapp_hornberger</span><span class="p">,</span>
+            <span class="n">ds</span><span class="p">[</span><span class="s2">"clyppt"</span><span class="p">],</span>
+            <span class="n">ds</span><span class="p">[</span><span class="s2">"sndppt"</span><span class="p">],</span>
+            <span class="n">dask</span><span class="o">=</span><span class="s2">"parallelized"</span><span class="p">,</span>
+            <span class="n">output_dtypes</span><span class="o">=</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+            <span class="n">keep_attrs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Unknown air-entry pressure PTF </span><span class="si">{</span><span class="n">ptf_name</span><span class="si">!r}</span><span class="s2">; "</span>
+            <span class="s2">"expected 'brakensiek' or 'clapp'."</span>
+        <span class="p">)</span>
+
+    <span class="n">ds_out</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"soil_hb"</span>
+    <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">set_nodata</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ds_out</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">b</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span>
 
@@ -885,6 +937,7 @@
     <span class="n">ptfKsatVer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"brakensiek"</span><span class="p">,</span>
     <span class="n">soil_fn</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"soilgrids"</span><span class="p">,</span>
     <span class="n">wflow_layers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">800</span><span class="p">],</span>
+    <span class="n">ptf_hb</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Return soil parameter maps at model resolution.</span>
@@ -919,6 +972,7 @@
 <span class="sd">            [mm-1] (fitted with numpy linalg regression), bounds are checked</span>
 <span class="sd">        - **soil_brooks_corey_c_** map: Brooks Corey coefficients [-] based on pore</span>
 <span class="sd">            size distribution index for the wflow_sbm soil layers.</span>
+<span class="sd">        - **soil_hb** : optional air-entry pressure head [cm].</span>
 <span class="sd">        - **meta_{soil_fn}_ksat_vertical_[z]cm** : ksat vertical [mm/day] at soil</span>
 <span class="sd">            depths [z] of SoilGrids data [0.0, 5.0, 15.0, 30.0, 60.0, 100.0, 200.0]</span>
 <span class="sd">        - **meta_soil_texture** : USDA Soil texture based on percentage clay, silt,</span>
@@ -939,12 +993,21 @@
 <span class="sd">        soilgrids version {'soilgrids', 'soilgrids_2020'}</span>
 <span class="sd">    wflow_layers : list</span>
 <span class="sd">        List of soil layer depths [cm] for which soil_brooks_corey_c is calculated.</span>
+<span class="sd">    ptf_hb : {"brakensiek", "clapp"}, optional</span>
+<span class="sd">        PTF used to calculate air-entry pressure. If omitted, no air-entry pressure</span>
+<span class="sd">        map is generated and Wflow uses its default value of -10 cm.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    ds_out : xarray.Dataset</span>
 <span class="sd">        Dataset containing gridded soil parameters.</span>
 <span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">ptf_hb</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">"brakensiek"</span><span class="p">,</span> <span class="s2">"clapp"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Unknown air-entry pressure PTF </span><span class="si">{</span><span class="n">ptf_hb</span><span class="si">!r}</span><span class="s2">; "</span>
+            <span class="s2">"expected 'brakensiek', 'clapp', or None."</span>
+        <span class="p">)</span>
+
     <span class="k">if</span> <span class="n">soil_fn</span> <span class="o">==</span> <span class="s2">"soilgrids_2020"</span><span class="p">:</span>
         <span class="c1"># use midpoints of depth intervals for soilgrids_2020.</span>
         <span class="n">soildepth_cm_midpoint</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">22.5</span><span class="p">,</span> <span class="mf">45.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">,</span> <span class="mf">150.0</span><span class="p">])</span>
@@ -984,6 +1047,17 @@
         <span class="n">thetas</span> <span class="o">=</span> <span class="n">average_soillayers</span><span class="p">(</span><span class="n">thetas_sl</span><span class="p">,</span> <span class="n">ds</span><span class="p">[</span><span class="s2">"soilthickness"</span><span class="p">])</span>
     <span class="n">thetas</span> <span class="o">=</span> <span class="n">thetas</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">reproject_like</span><span class="p">(</span><span class="n">ds_like</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"average"</span><span class="p">)</span>
     <span class="n">ds_out</span><span class="p">[</span><span class="s2">"theta_s"</span><span class="p">]</span> <span class="o">=</span> <span class="n">thetas</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ptf_hb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"calculate and resample air-entry pressure"</span><span class="p">)</span>
+        <span class="n">hb_sl</span> <span class="o">=</span> <span class="n">air_entry_pressure</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">thetas_sl</span><span class="p">,</span> <span class="n">ptf_hb</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">soil_fn</span> <span class="o">==</span> <span class="s2">"soilgrids_2020"</span><span class="p">:</span>
+            <span class="n">hb</span> <span class="o">=</span> <span class="n">average_soillayers_block</span><span class="p">(</span><span class="n">hb_sl</span><span class="p">,</span> <span class="n">ds</span><span class="p">[</span><span class="s2">"soilthickness"</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">hb</span> <span class="o">=</span> <span class="n">average_soillayers</span><span class="p">(</span><span class="n">hb_sl</span><span class="p">,</span> <span class="n">ds</span><span class="p">[</span><span class="s2">"soilthickness"</span><span class="p">])</span>
+        <span class="n">hb</span> <span class="o">=</span> <span class="n">hb</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">reproject_like</span><span class="p">(</span><span class="n">ds_like</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"average"</span><span class="p">)</span>
+        <span class="n">hb</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">"units"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"cm"</span>
+        <span class="n">ds_out</span><span class="p">[</span><span class="s2">"soil_hb"</span><span class="p">]</span> <span class="o">=</span> <span class="n">hb</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"calculate and resample theta_r"</span><span class="p">)</span>
     <span class="n">thetar_sl</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">apply_ufunc</span><span class="p">(</span>
